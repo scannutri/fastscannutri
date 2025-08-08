@@ -45,4 +45,45 @@ async def insert_analysis_result(user_id: str, nome: str, resultado: dict):
         if conn:
             await conn.close()
 
+async def get_user_analyses(user_id: str, limit: int = 10):
+    """
+    Busca as análises de um usuário específico
+    """
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL não configurada")
+    
+    conn = None
+    try:
+        conn = await asyncpg.connect(DATABASE_URL)
+        
+        query = """
+        SELECT id, user_id, nome, resultado, created_at 
+        FROM analises 
+        WHERE user_id = $1 
+        ORDER BY created_at DESC 
+        LIMIT $2
+        """
+        
+        rows = await conn.fetch(query, user_id, limit)
+        
+        analyses = []
+        for row in rows:
+            analyses.append({
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "nome": row["nome"],
+                "resultado": row["resultado"],
+                "created_at": row["created_at"].isoformat()
+            })
+        
+        return analyses
+        
+    except Exception as e:
+        print(f"Erro ao buscar análises: {e}")
+        raise e
+    finally:
+        if conn:
+            await conn.close()
+
 

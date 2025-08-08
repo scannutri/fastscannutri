@@ -1,10 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-
-class ImageAnalyzeRequest(BaseModel):
-    image_base64: str
-    user_id: str
-    nome: Optional[str] = None
+from typing import List, Optional
 
 class CaloriesKcal(BaseModel):
     low: float
