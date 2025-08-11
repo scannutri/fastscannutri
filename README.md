@@ -1,27 +1,28 @@
 # 🍎 FastScanNutri API
 
-API de análise nutricional inteligente usando Google Gemini AI para identificar alimentos em imagens e calcular informações nutricionais.
+API de análise nutricional inteligente usando Google Vertex AI para identificar alimentos em imagens e calcular informações nutricionais.
 
 ## 🚀 Funcionalidades
 
-- 📸 **Análise de imagens de alimentos** usando IA do Google Gemini
+- 📸 **Análise de imagens de alimentos** usando Vertex AI (Gemini 2.0 Flash)
 - 🔢 **Cálculo automático** de calorias, proteínas, carboidratos e gorduras
 - 📊 **Estimativas por intervalos** (min-max) para maior precisão
 - 💾 **Histórico de análises** salvo em PostgreSQL
 - 🌐 **API REST** com documentação automática
-- ⚡ **Deploy fácil** com Docker e Render
+- ⚡ **Deploy fácil** no Render
 
 ## 🛠️ Tecnologias
 
 - **FastAPI** - Framework web moderno e rápido
-- **Google Gemini 1.5 Flash** - IA para análise de imagens
+- **Google Vertex AI** - IA para análise de imagens (Gemini 2.0 Flash)
 - **PostgreSQL** - Banco de dados para histórico
 - **Pydantic** - Validação de dados
 - **Docker** - Containerização
 
 ## 📋 Endpoints
 
-- `POST /analyze` - Análise nutricional de imagem
+- `POST /analyze` - Análise nutricional completa de imagem
+- `POST /analisar-prato/` - Análise simples de prato
 - `GET /health` - Status da API
 - `GET /user/{user_id}/analyses` - Histórico do usuário
 - `GET /docs` - Documentação interativa
@@ -30,12 +31,12 @@ API de análise nutricional inteligente usando Google Gemini AI para identificar
 
 ### Pré-requisitos
 - Python 3.9+
-- PostgreSQL (ou Docker)
-- Chave da API do Google Gemini
+- PostgreSQL (ou usar banco externo)
+- Google Cloud Project com Vertex AI habilitado
 
 ### 1. Clone o repositório
 ```bash
-git clone https://github.com/scannutri/fastscannutri.git
+git clone https://github.com/seu-usuario/fastscannutri.git
 cd fastscannutri
 ```
 
@@ -44,10 +45,34 @@ cd fastscannutri
 pip install -r requirements.txt
 ```
 
-### 3. Configure as variáveis de ambiente
+### 3. Configure as credenciais do Google Cloud
+
+**⚠️ IMPORTANTE: As credenciais são sensíveis e NÃO devem ser commitadas!**
+
+#### Opção A: Service Account Key (Recomendado)
+1. Crie um Service Account no Google Cloud Console
+2. Baixe o arquivo JSON de credenciais
+3. Salve como `google-credentials.json` na raiz do projeto
+4. O arquivo já está no `.gitignore` e não será commitado
+
+#### Opção B: Application Default Credentials
+```bash
+gcloud auth application-default login
+```
+
+### 4. Configure as variáveis de ambiente
 ```bash
 cp .env.example .env
-# Edite o .env com suas chaves
+# Edite o .env com suas configurações
+```
+
+**Exemplo do .env:**
+```env
+VERTEX_AI_PROJECT_ID=seu-project-id-gcp
+VERTEX_AI_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=./google-credentials.json
+DATABASE_URL=sua-url-do-banco
+```
 ```
 
 ### 4. Execute a aplicação
