@@ -85,3 +85,13 @@ temp/
 
 # Test files
 test_frontend.html
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+
+# Google Cloud credentials
+google-credentials.json
+*.json
+!package*.json
