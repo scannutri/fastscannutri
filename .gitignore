@@ -91,7 +91,5 @@ test_frontend.html
 .env.local
 .env.*.local
 
-# Google Cloud credentials
+# Google Cloud credentials (apenas o arquivo real, não o exemplo)
 google-credentials.json
-*.json
-!package*.json
