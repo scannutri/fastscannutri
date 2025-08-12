@@ -69,6 +69,15 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
+# Log das variáveis de ambiente importantes (sem expor segredos)
+logging.info("=== FastScanNutri API Starting ===")
+logging.info(f"Python version: {os.sys.version}")
+logging.info(f"Environment: {'Render' if os.getenv('RENDER') else 'Local'}")
+logging.info(f"PROJECT_ID configured: {'Yes' if PROJECT_ID else 'No'}")
+logging.info(f"Google credentials type: {'JSON string' if GOOGLE_CREDENTIALS and GOOGLE_CREDENTIALS.startswith('{') else 'File path' if GOOGLE_CREDENTIALS else 'Not set'}")
+logging.info(f"DATABASE_URL configured: {'Yes' if os.getenv('DATABASE_URL') else 'No'}")
+logging.info("=" * 50)
+
 from model import GeminiVisionResponse
 from db import create_table_if_not_exists, insert_analysis_result
 
@@ -103,12 +112,20 @@ async def read_root():
 
 @app.get("/health")
 async def health_check():
-    """Health check simples da API"""
-    return {
+    """Health check para o Render"""
+    import time
+    health_data = {
         "status": "healthy",
+        "timestamp": int(time.time()),
         "message": "FastScanNutri API is running",
-        "vertex_ai": "available" if vertex_ai_initialized else "unavailable"
+        "vertex_ai": "available" if vertex_ai_initialized else "unavailable",
+        "environment": "render" if os.getenv("RENDER") else "local",
+        "project_id": "configured" if PROJECT_ID else "missing"
     }
+    
+    # Log do health check para debug no Render
+    logging.info(f"Health check called: {health_data}")
+    return health_data
 
 @app.get("/test")
 async def test_endpoint():

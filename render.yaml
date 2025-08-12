@@ -7,11 +7,16 @@ buildCommand: |
     name: fastscannutri
     env: python
     buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 30
+    healthCheckPath: /health
     envVars:
       - key: VERTEX_AI_PROJECT_ID
         sync: false
+      - key: VERTEX_AI_LOCATION
+        value: us-central1
       - key: GOOGLE_APPLICATION_CREDENTIALS
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: RENDER
+        value: "true"
