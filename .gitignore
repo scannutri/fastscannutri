@@ -88,8 +88,10 @@ test_frontend.html
 
 # Environment variables and secrets
 .env
+.env.*
 .env.local
 .env.*.local
 
-# Google Cloud credentials (apenas o arquivo real, não o exemplo)
+# Google Cloud credentials (NUNCA commitar arquivos de credenciais!)
 google-credentials.json
+*.json
