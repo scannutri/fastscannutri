@@ -7,26 +7,13 @@ buildCommand: |
     name: fastscannutri-api
     env: python
     plan: free
-    region: oregon
-    buildCommand: |
-      python -m pip install --upgrade pip setuptools wheel
-      pip install -r requirements.txt || pip install -r requirements-minimal.txt || pip install fastapi uvicorn python-dotenv asyncpg pydantic google-cloud-aiplatform python-multipart pillow
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.18
-      - key: RENDER
-        value: "true"
       - key: VERTEX_AI_PROJECT_ID
         sync: false
-      - key: VERTEX_AI_LOCATION
-        value: us-central1
       - key: GOOGLE_APPLICATION_CREDENTIALS
         sync: false
       - key: DATABASE_URL
         sync: false
-    disk:
-      name: data
-      mountPath: /tmp
-      sizeGB: 1

@@ -1,7 +1,6 @@
 import os
 import json
 import asyncio
-import time
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,9 +10,6 @@ import logging
 # Imports para Vertex AI
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
-
-# Variável global para controlar tempo de início
-start_time = time.time()
 
 # Carregar variáveis de ambiente apenas se não estiverem definidas (produção vs desenvolvimento)
 if not os.getenv("RENDER"):
@@ -55,20 +51,12 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS otimizado para produção
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:8000", 
-    "https://fastscannutri.onrender.com",
-    "https://*.onrender.com",
-    "*"  # Remover em produção final
-]
-
+# CORS otimizado
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -111,60 +99,13 @@ async def read_root():
 
 @app.get("/health")
 async def health_check():
-    """Endpoint completo para verificar a saúde da API"""
-    import time
-    from db import connect_db
-    
-    health_status = {
+    """Health check da API"""
+    return {
         "status": "healthy",
-        "timestamp": int(time.time()),
-        "version": "1.0.0",
-        "environment": "production" if os.getenv("RENDER") else "development",
-        "services": {
-            "api": "running",
-            "database": "unknown",
-            "vertex_ai": "unknown"
-        }
+        "message": "FastScanNutri API is running",
+        "vertex_ai": "configured" if os.getenv("VERTEX_AI_PROJECT_ID") else "not_configured",
+        "database": "configured" if os.getenv("DATABASE_URL") else "not_configured"
     }
-    
-    # Verificar conexão com database
-    try:
-        if os.getenv("DATABASE_URL"):
-            try:
-                conn = await connect_db()
-                if conn:
-                    await conn.close()
-                health_status["services"]["database"] = "connected"
-            except Exception as db_error:
-                health_status["services"]["database"] = "error"
-                health_status["status"] = "degraded"
-                logging.error(f"Database connection failed: {db_error}")
-        else:
-            health_status["services"]["database"] = "not_configured"
-    except Exception as e:
-        health_status["services"]["database"] = "error"
-        health_status["status"] = "degraded"
-        logging.warning(f"Database health check failed: {e}")
-    
-    # Verificar Vertex AI
-    try:
-        if os.getenv("VERTEX_AI_PROJECT_ID") and os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-            try:
-                # Teste simples do modelo
-                model = GenerativeModel("gemini-2.0-flash-001")
-                health_status["services"]["vertex_ai"] = "connected"
-            except Exception as ai_error:
-                health_status["services"]["vertex_ai"] = "error"
-                health_status["status"] = "degraded"
-                logging.error(f"Vertex AI connection failed: {ai_error}")
-        else:
-            health_status["services"]["vertex_ai"] = "not_configured"
-            health_status["status"] = "degraded"
-    except Exception as e:
-        health_status["services"]["vertex_ai"] = "error"
-        health_status["status"] = "degraded"
-    
-    return health_status
 
 @app.post("/analyze", response_model=GeminiVisionResponse)
 async def analyze_image(
@@ -371,38 +312,3 @@ async def analisar_prato(file: UploadFile = File(...)):
     except Exception as e:
         logging.error(f"Erro na análise do prato: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao analisar prato: {str(e)}")
-
-@app.get("/metrics")
-async def get_metrics():
-    """Endpoint para métricas básicas da aplicação"""
-    import psutil
-    import time
-    
-    try:
-        return {
-            "timestamp": int(time.time()),
-            "uptime": time.time() - start_time,
-            "system": {
-                "cpu_percent": psutil.cpu_percent(interval=1),
-                "memory_percent": psutil.virtual_memory().percent,
-                "disk_percent": psutil.disk_usage('/').percent
-            },
-            "environment": {
-                "python_version": os.sys.version,
-                "render": bool(os.getenv("RENDER")),
-                "vertex_ai_configured": bool(os.getenv("VERTEX_AI_PROJECT_ID")),
-                "database_configured": bool(os.getenv("DATABASE_URL"))
-            }
-        }
-    except ImportError:
-        # psutil não disponível
-        return {
-            "timestamp": int(time.time()),
-            "uptime": time.time() - start_time,
-            "environment": {
-                "python_version": os.sys.version,
-                "render": bool(os.getenv("RENDER")),
-                "vertex_ai_configured": bool(os.getenv("VERTEX_AI_PROJECT_ID")),
-                "database_configured": bool(os.getenv("DATABASE_URL"))
-            }
-        }

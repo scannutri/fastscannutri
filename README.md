@@ -1,33 +1,34 @@
 # 🍎 FastScanNutri API
 
-**API de Análise Nutricional com IA - Pronta para Produção no Render**
-
-Análise nutricional inteligente usando Google Vertex AI para identificar alimentos em imagens e calcular informações nutricionais.
-
-## ✅ Status: PRONTO PARA RENDER
-
-Esta API foi otimizada e está pronta para deploy em produção no Render.com com:
-- ✅ Configuração de produção otimizada
-- ✅ Health checks e métricas
-- ✅ Tratamento robusto de erros  
-- ✅ Logging estruturado
-- ✅ Segurança aprimorada
+API de análise nutricional com IA usando Google Vertex AI.
 
 ## 🚀 Deploy no Render
 
-### Variáveis de Ambiente Obrigatórias:
-```bash
+### Variáveis de ambiente necessárias:
+```
 VERTEX_AI_PROJECT_ID=gen-lang-client-0606566455
-GOOGLE_APPLICATION_CREDENTIALS={"type":"service_account",...}  # JSON completo
-DATABASE_URL=postgresql://...  # Opcional
-RENDER=true
+GOOGLE_APPLICATION_CREDENTIALS={"type":"service_account",...}
+DATABASE_URL=postgresql://... (opcional)
 ```
 
 ### Comandos:
-- **Build**: `pip install --upgrade pip && pip install -r requirements.txt`
+- **Build**: `pip install -r requirements.txt`  
 - **Start**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-## 🌟 Funcionalidades
+## 📚 Endpoints
+
+- `POST /analyze` - Análise de imagem
+- `GET /health` - Health check
+- `GET /docs` - Documentação
+
+## 🛠️ Arquivos essenciais
+
+- `main.py` - Aplicação principal
+- `model.py` - Modelos Pydantic  
+- `db.py` - Banco de dados
+- `requirements.txt` - Dependências
+- `render.yaml` - Configuração do Render
+- `.env.example` - Exemplo de configuração
 
 - 📸 **Análise de imagens de alimentos** usando Vertex AI (Gemini 2.0 Flash)
 - 🔢 **Cálculo automático** de calorias, proteínas, carboidratos e gorduras
