@@ -1,56 +1,125 @@
 import os
+import json
+import asyncio
+import time
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import logging
 
 # Imports para Vertex AI
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 
-load_dotenv()
+# Variável global para controlar tempo de início
+start_time = time.time()
 
-# Configuração do Vertex AI
-PROJECT_ID = os.getenv("VERTEX_AI_PROJECT_ID", "your-project-id")
+# Carregar variáveis de ambiente apenas se não estiverem definidas (produção vs desenvolvimento)
+if not os.getenv("RENDER"):
+    load_dotenv()
+
+# Configuração do Vertex AI com fallback seguro
+PROJECT_ID = os.getenv("VERTEX_AI_PROJECT_ID")
 LOCATION = os.getenv("VERTEX_AI_LOCATION", "us-central1")
-vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+# Configurar credenciais do Google Cloud para produção
+GOOGLE_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+if GOOGLE_CREDENTIALS and not os.path.exists(GOOGLE_CREDENTIALS):
+    # Se GOOGLE_APPLICATION_CREDENTIALS contém JSON em vez de path (produção)
+    try:
+        credentials_dict = json.loads(GOOGLE_CREDENTIALS)
+        # Escrever temporariamente para usar com vertexai
+        temp_creds_path = "/tmp/google-credentials.json"
+        with open(temp_creds_path, "w") as f:
+            json.dump(credentials_dict, f)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = temp_creds_path
+    except json.JSONDecodeError:
+        pass
+
+# Inicializar Vertex AI apenas se as credenciais estiverem configuradas
+if PROJECT_ID and os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    try:
+        vertexai.init(project=PROJECT_ID, location=LOCATION)
+        logging.info(f"Vertex AI initialized with project: {PROJECT_ID}")
+    except Exception as e:
+        logging.warning(f"Failed to initialize Vertex AI: {e}")
+else:
+    logging.warning("Vertex AI not initialized - missing credentials or project ID")
 
 app = FastAPI(
     title="FastScanNutri API",
-    description="API de Análise Nutricional com IA",
-    version="1.0.0"
+    description="API de Análise Nutricional com IA usando Vertex AI",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
+
+# CORS otimizado para produção
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8000", 
+    "https://fastscannutri.onrender.com",
+    "https://*.onrender.com",
+    "*"  # Remover em produção final
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
-logging.basicConfig(level=logging.INFO)
+# Configurar logging para produção
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 from model import GeminiVisionResponse
 from db import create_table_if_not_exists, insert_analysis_result
 
 @app.on_event("startup")
 async def startup_event():
-    await create_table_if_not_exists()
+    """Inicialização da aplicação"""
+    logging.info("Starting FastScanNutri API...")
+    
+    # Verificar se o banco está configurado antes de criar tabelas
+    if os.getenv("DATABASE_URL"):
+        try:
+            await create_table_if_not_exists()
+            logging.info("Database tables checked/created successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize database: {e}")
+    else:
+        logging.warning("DATABASE_URL not configured - running without database")
+    
+    logging.info("FastScanNutri API started successfully!")
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome to FastScanNutri API! 🍎", "docs": "/docs"}
+    """Root endpoint com informações da API"""
+    return {
+        "message": "Welcome to FastScanNutri API! 🍎",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+        "status": "running"
+    }
 
 @app.get("/health")
 async def health_check():
-    """Endpoint para verificar a saúde da API"""
+    """Endpoint completo para verificar a saúde da API"""
     import time
+    from db import connect_db
     
     health_status = {
         "status": "healthy",
         "timestamp": int(time.time()),
         "version": "1.0.0",
+        "environment": "production" if os.getenv("RENDER") else "development",
         "services": {
             "api": "running",
             "database": "unknown",
@@ -61,17 +130,33 @@ async def health_check():
     # Verificar conexão com database
     try:
         if os.getenv("DATABASE_URL"):
-            health_status["services"]["database"] = "configured"
+            try:
+                conn = await connect_db()
+                if conn:
+                    await conn.close()
+                health_status["services"]["database"] = "connected"
+            except Exception as db_error:
+                health_status["services"]["database"] = "error"
+                health_status["status"] = "degraded"
+                logging.error(f"Database connection failed: {db_error}")
         else:
             health_status["services"]["database"] = "not_configured"
     except Exception as e:
         health_status["services"]["database"] = "error"
+        health_status["status"] = "degraded"
         logging.warning(f"Database health check failed: {e}")
     
     # Verificar Vertex AI
     try:
         if os.getenv("VERTEX_AI_PROJECT_ID") and os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-            health_status["services"]["vertex_ai"] = "configured"
+            try:
+                # Teste simples do modelo
+                model = GenerativeModel("gemini-2.0-flash-001")
+                health_status["services"]["vertex_ai"] = "connected"
+            except Exception as ai_error:
+                health_status["services"]["vertex_ai"] = "error"
+                health_status["status"] = "degraded"
+                logging.error(f"Vertex AI connection failed: {ai_error}")
         else:
             health_status["services"]["vertex_ai"] = "not_configured"
             health_status["status"] = "degraded"
@@ -96,9 +181,20 @@ async def analyze_image(
     """
     logging.info(f"Received analysis request for user: {user_id}")
     
-    # Verificar se é uma imagem
-    if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
+    # Validações iniciais
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem válida")
+    
+    # Verificar tamanho da imagem (max 10MB)
+    if image.size and image.size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Imagem muito grande. Tamanho máximo: 10MB")
+    
+    # Verificar se Vertex AI está configurado
+    if not os.getenv("VERTEX_AI_PROJECT_ID") or not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        raise HTTPException(
+            status_code=503, 
+            detail="Vertex AI não está configurado. Entre em contato com o administrador."
+        )
     
     try:
         # Ler os dados da imagem
@@ -275,3 +371,38 @@ async def analisar_prato(file: UploadFile = File(...)):
     except Exception as e:
         logging.error(f"Erro na análise do prato: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao analisar prato: {str(e)}")
+
+@app.get("/metrics")
+async def get_metrics():
+    """Endpoint para métricas básicas da aplicação"""
+    import psutil
+    import time
+    
+    try:
+        return {
+            "timestamp": int(time.time()),
+            "uptime": time.time() - start_time,
+            "system": {
+                "cpu_percent": psutil.cpu_percent(interval=1),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_percent": psutil.disk_usage('/').percent
+            },
+            "environment": {
+                "python_version": os.sys.version,
+                "render": bool(os.getenv("RENDER")),
+                "vertex_ai_configured": bool(os.getenv("VERTEX_AI_PROJECT_ID")),
+                "database_configured": bool(os.getenv("DATABASE_URL"))
+            }
+        }
+    except ImportError:
+        # psutil não disponível
+        return {
+            "timestamp": int(time.time()),
+            "uptime": time.time() - start_time,
+            "environment": {
+                "python_version": os.sys.version,
+                "render": bool(os.getenv("RENDER")),
+                "vertex_ai_configured": bool(os.getenv("VERTEX_AI_PROJECT_ID")),
+                "database_configured": bool(os.getenv("DATABASE_URL"))
+            }
+        }

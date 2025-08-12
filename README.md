@@ -1,8 +1,33 @@
 # 🍎 FastScanNutri API
 
-API de análise nutricional inteligente usando Google Vertex AI para identificar alimentos em imagens e calcular informações nutricionais.
+**API de Análise Nutricional com IA - Pronta para Produção no Render**
 
-## 🚀 Funcionalidades
+Análise nutricional inteligente usando Google Vertex AI para identificar alimentos em imagens e calcular informações nutricionais.
+
+## ✅ Status: PRONTO PARA RENDER
+
+Esta API foi otimizada e está pronta para deploy em produção no Render.com com:
+- ✅ Configuração de produção otimizada
+- ✅ Health checks e métricas
+- ✅ Tratamento robusto de erros  
+- ✅ Logging estruturado
+- ✅ Segurança aprimorada
+
+## 🚀 Deploy no Render
+
+### Variáveis de Ambiente Obrigatórias:
+```bash
+VERTEX_AI_PROJECT_ID=gen-lang-client-0606566455
+GOOGLE_APPLICATION_CREDENTIALS={"type":"service_account",...}  # JSON completo
+DATABASE_URL=postgresql://...  # Opcional
+RENDER=true
+```
+
+### Comandos:
+- **Build**: `pip install --upgrade pip && pip install -r requirements.txt`
+- **Start**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+## 🌟 Funcionalidades
 
 - 📸 **Análise de imagens de alimentos** usando Vertex AI (Gemini 2.0 Flash)
 - 🔢 **Cálculo automático** de calorias, proteínas, carboidratos e gorduras

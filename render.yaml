@@ -1,14 +1,32 @@
-services:
+buildCommand: |
+  pip install --upgrade pip
+  pip install -r requirements.txt  buildCommand: |
+    pip install --upgrade pip
+    pip install -r requirements.txtservices:
   - type: web
     name: fastscannutri-api
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    region: oregon
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.16
-      - key: GEMINI_API_KEY
+        value: 3.9.18
+      - key: RENDER
+        value: "true"
+      - key: VERTEX_AI_PROJECT_ID
+        sync: false
+      - key: VERTEX_AI_LOCATION
+        value: us-central1
+      - key: GOOGLE_APPLICATION_CREDENTIALS
         sync: false
       - key: DATABASE_URL
         sync: false
+    disk:
+      name: data
+      mountPath: /tmp
+      sizeGB: 1
