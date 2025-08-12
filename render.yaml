@@ -4,14 +4,10 @@ buildCommand: |
     pip install --upgrade pip
     pip install -r requirements.txtservices:
   - type: web
-    name: fastscannutri-api
+    name: fastscannutri
     env: python
-    plan: free
-    buildCommand: |
-      pip install --upgrade pip setuptools wheel
-      pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
     envVars:
       - key: VERTEX_AI_PROJECT_ID
         sync: false
