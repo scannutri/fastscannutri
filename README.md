@@ -4,6 +4,11 @@ API de análise nutricional com IA usando Google Vertex AI.
 
 ## 🚀 Deploy no Render
 
+### ⚡ Fix para erro de build:
+1. **apt.txt** - Instala dependências do sistema
+2. **pillow 9.5.0** - Versão com wheel pronto
+3. **Build command otimizado** - Atualiza pip antes
+
 ### Variáveis de ambiente necessárias:
 ```
 VERTEX_AI_PROJECT_ID=gen-lang-client-0606566455
@@ -11,9 +16,12 @@ GOOGLE_APPLICATION_CREDENTIALS={"type":"service_account",...}
 DATABASE_URL=postgresql://... (opcional)
 ```
 
-### Comandos:
-- **Build**: `pip install -r requirements.txt`  
+### Comandos (automático via render.yaml):
+- **Build**: `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`  
 - **Start**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+### 🆘 Se ainda der erro:
+Use: `pip install -r requirements-minimal.txt` (sem asyncpg/pillow)
 
 ## 📚 Endpoints
 
