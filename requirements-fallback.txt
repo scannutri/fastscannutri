@@ -1,0 +1,9 @@
+# Versão ultra conservadora (caso de emergência)
+fastapi
+uvicorn
+python-dotenv
+asyncpg
+pydantic
+google-cloud-aiplatform
+python-multipart
+pillow

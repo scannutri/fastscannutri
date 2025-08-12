@@ -9,8 +9,8 @@ buildCommand: |
     plan: free
     region: oregon
     buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
+      python -m pip install --upgrade pip setuptools wheel
+      pip install -r requirements.txt || pip install -r requirements-minimal.txt || pip install fastapi uvicorn python-dotenv asyncpg pydantic google-cloud-aiplatform python-multipart pillow
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     envVars:
