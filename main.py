@@ -11,9 +11,8 @@ import logging
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 
-# Carregar variáveis de ambiente apenas se não estiverem definidas (produção vs desenvolvimento)
-if not os.getenv("RENDER"):
-    load_dotenv()
+# Carregar variáveis de ambiente
+load_dotenv()
 
 # Configuração do Vertex AI com fallback seguro
 PROJECT_ID = os.getenv("VERTEX_AI_PROJECT_ID")
@@ -21,7 +20,7 @@ LOCATION = os.getenv("VERTEX_AI_LOCATION", "us-central1")
 
 # Configurar credenciais do Google Cloud para produção
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-if GOOGLE_CREDENTIALS and not os.path.exists(GOOGLE_CREDENTIALS):
+if GOOGLE_CREDENTIALS and GOOGLE_CREDENTIALS.startswith("{"):
     # Se GOOGLE_APPLICATION_CREDENTIALS contém JSON em vez de path (produção)
     try:
         credentials_dict = json.loads(GOOGLE_CREDENTIALS)
@@ -30,18 +29,22 @@ if GOOGLE_CREDENTIALS and not os.path.exists(GOOGLE_CREDENTIALS):
         with open(temp_creds_path, "w") as f:
             json.dump(credentials_dict, f)
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = temp_creds_path
-    except json.JSONDecodeError:
-        pass
+        logging.info("Google credentials configured from JSON string")
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse Google credentials JSON: {e}")
 
 # Inicializar Vertex AI apenas se as credenciais estiverem configuradas
+vertex_ai_initialized = False
 if PROJECT_ID and os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
     try:
         vertexai.init(project=PROJECT_ID, location=LOCATION)
-        logging.info(f"Vertex AI initialized with project: {PROJECT_ID}")
+        vertex_ai_initialized = True
+        logging.info(f"Vertex AI initialized successfully with project: {PROJECT_ID}")
     except Exception as e:
-        logging.warning(f"Failed to initialize Vertex AI: {e}")
+        logging.error(f"Failed to initialize Vertex AI: {e}")
+        logging.warning("App will start without Vertex AI - some endpoints may not work")
 else:
-    logging.warning("Vertex AI not initialized - missing credentials or project ID")
+    logging.warning("Vertex AI not initialized - missing PROJECT_ID or credentials")
 
 app = FastAPI(
     title="FastScanNutri API",
@@ -81,10 +84,11 @@ async def startup_event():
             logging.info("Database tables checked/created successfully")
         except Exception as e:
             logging.error(f"Failed to initialize database: {e}")
+            logging.warning("App will continue without database")
     else:
-        logging.warning("DATABASE_URL not configured - running without database")
+        logging.info("DATABASE_URL not configured - running without database")
     
-    logging.info("FastScanNutri API started successfully!")
+    logging.info(f"FastScanNutri API started successfully! Vertex AI: {'enabled' if vertex_ai_initialized else 'disabled'}")
 
 @app.get("/")
 async def read_root():
@@ -99,12 +103,20 @@ async def read_root():
 
 @app.get("/health")
 async def health_check():
-    """Health check da API"""
+    """Health check simples da API"""
     return {
         "status": "healthy",
         "message": "FastScanNutri API is running",
-        "vertex_ai": "configured" if os.getenv("VERTEX_AI_PROJECT_ID") else "not_configured",
-        "database": "configured" if os.getenv("DATABASE_URL") else "not_configured"
+        "vertex_ai": "available" if vertex_ai_initialized else "unavailable"
+    }
+
+@app.get("/test")
+async def test_endpoint():
+    """Endpoint de teste simples"""
+    return {
+        "message": "API está funcionando!",
+        "timestamp": "2025-08-12",
+        "environment": "render" if os.getenv("RENDER") else "local"
     }
 
 @app.post("/analyze", response_model=GeminiVisionResponse)
@@ -131,10 +143,10 @@ async def analyze_image(
         raise HTTPException(status_code=400, detail="Imagem muito grande. Tamanho máximo: 10MB")
     
     # Verificar se Vertex AI está configurado
-    if not os.getenv("VERTEX_AI_PROJECT_ID") or not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    if not vertex_ai_initialized:
         raise HTTPException(
             status_code=503, 
-            detail="Vertex AI não está configurado. Entre em contato com o administrador."
+            detail="Vertex AI não está disponível. Verifique a configuração."
         )
     
     try:
